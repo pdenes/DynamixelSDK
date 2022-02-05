@@ -27,6 +27,13 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <linux/serial.h>
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+#define GPIOD_HALF_DUPLEX_TX_ENABLE 1
+#define GPIOD_HALF_DUPLEX_TX_DISABLE 0
+#include <gpiod.hpp>
+#include <chrono>
+#include <thread>
+#endif
 
 #include "port_handler_linux.h"
 
@@ -87,11 +94,20 @@ PortHandlerLinux::PortHandlerLinux(const char *port_name)
 {
   is_using_ = false;
   setPortName(port_name);
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+  gpio_chip = ::std::make_shared<gpiod::chip>(gpiod::chip("gpiochip0"));
+  gpio_dir_line = gpio_chip->get_line(GPIOD_HALF_DUPLEX_DIR_PIN);
+#endif
 }
 
 bool PortHandlerLinux::openPort()
 {
-  return setBaudRate(baudrate_);
+  bool result = setBaudRate(baudrate_);
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+  gpio_dir_line.request({"Dynamixel", gpiod::line_request::DIRECTION_OUTPUT, 0});
+  gpio_dir_line.set_value(GPIOD_HALF_DUPLEX_TX_DISABLE);
+#endif
+  return result;
 }
 
 void PortHandlerLinux::closePort()
@@ -155,7 +171,15 @@ int PortHandlerLinux::readPort(uint8_t *packet, int length)
 
 int PortHandlerLinux::writePort(uint8_t *packet, int length)
 {
-  return write(socket_fd_, packet, length);
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+  gpio_dir_line.set_value(GPIOD_HALF_DUPLEX_TX_ENABLE);
+#endif
+  int result = write(socket_fd_, packet, length);
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+  std::this_thread::sleep_for(std::chrono::duration<double>(tx_time_per_byte * length / 1000.0));
+  gpio_dir_line.set_value(GPIOD_HALF_DUPLEX_TX_DISABLE);
+#endif
+  return result;
 }
 
 void PortHandlerLinux::setPacketTimeout(uint16_t packet_length)
