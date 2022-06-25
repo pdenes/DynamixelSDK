@@ -24,6 +24,9 @@
 
 
 #include "port_handler.h"
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+#include <gpiod.hpp>
+#endif
 
 namespace dynamixel
 {
@@ -41,6 +44,11 @@ class PortHandlerLinux : public PortHandler
   double  packet_start_time_;
   double  packet_timeout_;
   double  tx_time_per_byte;
+
+#if defined(GPIOD_HALF_DUPLEX_DIR_PIN)
+  ::std::shared_ptr<gpiod::chip> gpio_chip;
+  gpiod::line gpio_dir_line;
+#endif
 
   bool    setupPort(const int cflag_baud);
   bool    setCustomBaudrate(int speed);

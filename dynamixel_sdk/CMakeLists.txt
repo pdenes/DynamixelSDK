@@ -52,6 +52,11 @@ else()
   )
 endif()
 
+if (GPIOD_HALF_DUPLEX_DIR_PIN)
+  add_compile_definitions(GPIOD_HALF_DUPLEX_DIR_PIN=${GPIOD_HALF_DUPLEX_DIR_PIN})
+  target_link_libraries(dynamixel_sdk -lgpiodcxx)
+endif()
+
 ################################################################################
 # Install
 ################################################################################
